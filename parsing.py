@@ -1,3 +1,5 @@
+import requests
+
 from requesting import get_requests
 
 # Extract all links
@@ -15,19 +17,19 @@ def get_link(soup):
     href = link_tag.get('href')
 
     # Excluding some from link
-    if len(href) > 50 and "https://20.detik.com/" not in href and "https://news.detik.com/foto-" not in href:
+    if len(href) > 50 and "https://20.detik.com/" not in href and ".com/foto-" not in href:
       link_list.append(href)
   
-  print(f"Total link found: {len(link_list)}")
   return link_list
 
 # Extract img URL, Title, Content, author, date
-# Dont forget to add ?single=1 to each link below
 def get_info(link):
+
+  # Add ?single=1 to extract all pages from the news
   link = link + "?single=1"
+
   session = requests.Session()
   soup, status = get_requests(url=link, session=session)
-  print(f"Getting image, title, content, author, date from {link}")
 
   info = {}
   if status == 200:
@@ -52,19 +54,14 @@ def get_info(link):
     strong_element = content.find('strong')
     p_elements = content.find_all('p')
 
-    # Exclude class='para_caption', "Simak Video", "Gambas" from element
-    filtered_elements = [
-        p for p in p_elements 
-        if 'para_caption' not in p.get('class', []) and 
-        "Simak Video" not in p.text and 
-        "Gambas" not in p.text and 
-        not p.find('a', href=True)
-    ]
+    filtered = filtered_element(p_elements)
+
     list_element = []
     list_element.append(strong_element)
-    for p in filtered_elements:
+    for p in filtered:
         list_element.append(p)
 
+    # Add info to the empty dictionary
     info["Link"] = link
     info["Title"] = title
     info["Author"] = author
@@ -72,9 +69,35 @@ def get_info(link):
     info["Image URL"] = img
     info["Content"] = list_element
 
-    print("Info added.")
   return info
 
+def filtered_element(p_elements):
+  # List of substrings to exclude
+  exclude_substrings = ["Simak Video", "Gambas"]
+  
+  # Create a new list by filtering elements from p_elements
+  filtered_elements = []
+  
+  # Loop through each paragraph
+  for p in p_elements:
+    # Check if the paragraph has the 'para_caption' class
+    paragraph_classes = p.get('class', []) # If the paragraph doesn't have any class, it returns an empty list ([]).
+    if 'para_caption' in paragraph_classes:
+      continue  # Skip this paragraph
+
+    # Check if the paragraph contains any of the excluded substrings
+    for substring in exclude_substrings:
+      if substring in p.text:
+        continue  # Skip this paragraph if any excluded substring is found
+
+    # Check if the paragraph contains a link (anchor tag with href)
+    if p.find('a', href=True):
+      continue  # Skip this paragraph
+
+    filtered_elements.append(p)
+  return filtered_elements
+
+# Validating info
 def validate_info(tag, classes, article):
   try:
     info = article.find(tag, class_=classes)
@@ -83,31 +106,13 @@ def validate_info(tag, classes, article):
     print(f"An exception occurred: {e}")
   return info
 
+# Extracting all info from all links
 def get_info_all_links(links):
-    all_info = []
-    for index, link in enumerate(links):
-        print(f"Processing link {index + 1} out of {len(links)}: {link}")
-        info = get_info(link=link)
-        if info:
-            info["Index"] = index + 1  # Add index to info dict
-            all_info.append(info)
-  
-    print("Completed getting all info from each link.")
-    return all_info, index
+  all_info = []
+  for index, link in enumerate(links):
+    info = get_info(link=link)
+    if info:
+      info["Index"] = index + 1  # Add index to info dict
+      all_info.append(info)
 
-# def get_info_all_links(links):
-#   all_info = []
-#   for link in links:
-#     info = get_info(link=link)
-#     all_info.append(info)
-  
-#   print ("Getting all info from each link")
-#   return all_info
-
-import requests
-if __name__ == '__main__':
-  # url = 'https://news.detik.com/indeks'
-  # session = requests.Session()
-  # soup, status = get_requests(url=url, session=session)
-  # link = get_link(soup)
-  get_info(link='https://news.detik.com/pilkada/d-7570174/didukung-1-000-nyai-cagub-luthfi-beberkan-program-pesantren-obah')
+  return all_info, index

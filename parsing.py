@@ -1,11 +1,15 @@
 import requests
 
-from requesting import get_requests
+from NewsAggregator.requesting import get_requests
 
 # Extract all links
 def get_link(soup):
   # Find tag that have link inside
-  article = soup.find('div', class_='grid-row list-content')
+  try:
+    article = soup.find('div', class_='grid-row list-content')
+  except AttributeError as e:
+    article = None
+    print(soup)
 
   # Find all links inside above tag
   links = article.find_all('h3', class_='media__title')
@@ -48,18 +52,7 @@ def get_info(link):
     date = validate_info(tag='div', classes='detail__date', article=article).get_text(strip=True)    
 
     # Find content
-    content = validate_info(tag='div', classes='detail__body-text itp_bodycontent', article=article)
-    
-    # Get first <strong> and all element <p>
-    strong_element = content.find('strong')
-    p_elements = content.find_all('p')
-
-    filtered = filtered_element(p_elements)
-
-    list_element = []
-    list_element.append(strong_element)
-    for p in filtered:
-        list_element.append(p)
+    content = validate_info(tag='div', classes='detail__body-text itp_bodycontent', article=article).get_text(strip=True)
 
     # Add info to the empty dictionary
     info["Link"] = link
@@ -67,35 +60,8 @@ def get_info(link):
     info["Author"] = author
     info["Date"] = date
     info["Image URL"] = img
-    info["Content"] = list_element
-
+    info["Content"] = content
   return info
-
-def filtered_element(p_elements):
-  # List of substrings to exclude
-  exclude_substrings = ["Simak Video", "Gambas"]
-  
-  # Create a new list by filtering elements from p_elements
-  filtered_elements = []
-  
-  # Loop through each paragraph
-  for p in p_elements:
-    # Check if the paragraph has the 'para_caption' class
-    paragraph_classes = p.get('class', []) # If the paragraph doesn't have any class, it returns an empty list ([]).
-    if 'para_caption' in paragraph_classes:
-      continue  # Skip this paragraph
-
-    # Check if the paragraph contains any of the excluded substrings
-    for substring in exclude_substrings:
-      if substring in p.text:
-        continue  # Skip this paragraph if any excluded substring is found
-
-    # Check if the paragraph contains a link (anchor tag with href)
-    if p.find('a', href=True):
-      continue  # Skip this paragraph
-
-    filtered_elements.append(p)
-  return filtered_elements
 
 # Validating info
 def validate_info(tag, classes, article):
@@ -114,5 +80,7 @@ def get_info_all_links(links):
     if info:
       info["Index"] = index + 1  # Add index to info dict
       all_info.append(info)
+    print(link)
+  print(f"Total links extracted are {len(links)}")
 
   return all_info, index
